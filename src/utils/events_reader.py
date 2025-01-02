@@ -76,7 +76,7 @@ class H5Reader:
             else:
                 time_last = time
 
-    def get_event_slice(self, idx_start: int, idx_end: int, convert_2_torch: bool = True) -> dict:
+    def get_event_slice(self, idx_start: int, idx_end: int, convert_2_torch: bool = False) -> dict:
         assert self.is_open
         assert idx_end >= idx_start
 

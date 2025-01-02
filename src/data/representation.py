@@ -59,7 +59,7 @@ class EventFrame(RepresentationBase):
         frame[2, y_clipped[on_mask], x_clipped[on_mask]] = 0
 
         # OFF events (pol == -1) → Blue channel
-        off_mask = (pol == -1)
+        off_mask = (pol == 0)
         frame[0, y_clipped[off_mask], x_clipped[off_mask]] = 0
         frame[1, y_clipped[off_mask], x_clipped[off_mask]] = 0
         frame[2, y_clipped[off_mask], x_clipped[off_mask]] = 255  # Blue
@@ -97,7 +97,7 @@ class EventFrame(RepresentationBase):
         frame[2, y_clipped[on_mask], x_clipped[on_mask]] = 0
 
         # OFF events (pol == -1) -> Blue channel
-        off_mask = (pol == -1)
+        off_mask = (pol == 0)
         frame[0, y_clipped[off_mask], x_clipped[off_mask]] = 0
         frame[1, y_clipped[off_mask], x_clipped[off_mask]] = 0
         frame[2, y_clipped[off_mask], x_clipped[off_mask]] = 255  # Blue
@@ -107,7 +107,7 @@ class EventFrame(RepresentationBase):
             frame = frame.transpose(1, 2, 0)  # Convert to (H, W, C) for resizing
             frame = cv2.resize(frame, (self.width // 2, self.height // 2), interpolation=cv2.INTER_LINEAR)
             frame = frame.transpose(2, 0, 1)  # Convert back to (C, H, W)
-
+        
         return frame
 
 
