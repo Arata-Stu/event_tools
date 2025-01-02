@@ -2,3 +2,4 @@ h5py
 opencv-python
 torch
 numba
+einops
