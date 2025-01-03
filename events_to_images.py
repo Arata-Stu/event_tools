@@ -27,17 +27,21 @@ def main(h5_file_path, camera, delta_t_ms, output_dir):
         idx_start = idx_end
 
         # Numpy配列をTensorに変換
-        t = th.from_numpy(events['t'])
-        x = th.from_numpy(events['x'])
-        y = th.from_numpy(events['y'])
-        p = th.from_numpy(events['p'])
+        t = events['t']
+        x = events['x']
+        y = events['y']
+        p = events['p']
 
         # イベントデータをフレームに変換
         frame = event_frame.construct(x=x, y=y, pol=p, time=t)
 
-        # CHW -> HWC形式に変換してNumpy配列に
-        frame = frame.permute(1, 2, 0).cpu().numpy()
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # フレーム形式に応じた処理 (CHW → HWC)
+        if isinstance(frame, th.Tensor):
+            frame = frame.permute(1, 2, 0).cpu().numpy()  # Tensor を numpy に変換
+        elif isinstance(frame, np.ndarray):
+            frame = frame.transpose(1, 2, 0)  # Numpy 形式の次元を変更
+        else:
+            raise ValueError("Unsupported frame format. Frame must be either Tensor or Numpy array.")
 
         output_filename = output_dir / f"{all_time[idx_start - 1]}.png"
         frames_to_save.append((output_filename, frame))
