@@ -6,7 +6,7 @@ from pathlib import Path
 from src.utils.events_reader import H5Reader
 from src.data.representation import EventFrame
 
-def main(h5_file_path, camera, delta_t_ms):
+def main(h5_file_path, camera, delta_t_ms, output_dir):
 
     delta_t_ns = delta_t_ms * 1000
     # h5ファイルと画像サイズを指定してH5Readerを初期化
@@ -46,7 +46,7 @@ def main(h5_file_path, camera, delta_t_ms):
         # RGB → BGR に変換
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-        output_filename = f'output_{all_time[idx_start - 1]}.png'
+        output_filename = f'{output_dir}/{all_time[idx_start - 1]}.png'
 
         # 画像を保存
         cv2.imwrite(output_filename, frame)
@@ -59,6 +59,7 @@ if __name__ == "__main__":
     parser.add_argument("--h5_file", type=str, required=True,  help="Path to the HDF5 file.")
     parser.add_argument("--camera", type=str, required=True, help="camera type Ex: VGA, HD ...")
     parser.add_argument("--delta_t_ms", type=int, required=True, default=100, help="Time interval in milliseconds for event slices.")
+    parser.add_argument("--output_dir", type=str, default=".", help="Output directory for images.")
     args = parser.parse_args()
 
-    main(args.h5_file, args.camera, args.delta_t_ms)
+    main(args.h5_file, args.camera, args.delta_t_ms, args.output_dir)
