@@ -76,6 +76,23 @@ class H5Reader:
                 time_array[idx] = time_last
             else:
                 time_last = tval
+    
+    def get_original_dtypes(self) -> dict:
+        """
+        t, x, y, p それぞれの要素が元々どのデータ型で保存されていたかを取得する。
+        Returns:
+            dict: 各データの元のデータ型を示す辞書
+        """
+        assert self.is_open, "File is closed."
+        ev_data = self.h5f['CD']['events']
+        
+        dtypes = {
+            "t": ev_data['t'].dtype,
+            "x": ev_data['x'].dtype,
+            "y": ev_data['y'].dtype,
+            "p": ev_data['p'].dtype
+        }
+        return dtypes
 
     def get_event_slice(self, idx_start: int, idx_end: int, convert_2_torch: bool = False) -> dict:
         """

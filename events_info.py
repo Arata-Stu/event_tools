@@ -7,6 +7,7 @@ def main(h5_file_path: str, camera: str):
     with H5Reader(h5_file_path, camera) as h5r:
         print(h5r.get_event_summary())
         print(h5r.time)
+        print(h5r.get_original_dtypes())
 
 
 if __name__ == "__main__":
