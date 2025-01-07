@@ -261,3 +261,102 @@ def cumsum_channel(x: th.Tensor, num_channels: int):
     for i in reversed(range(num_channels)):
         x[i] = th.sum(input=x[:i + 1], dim=0)
     return x
+
+
+class TimeSurface(RepresentationBase):
+    def __init__(self, height: int, width: int, decay_const: float, downsample: bool = False):
+        """
+        Time Surface representation that encodes the last event times in a decaying format.
+        :param height: Height of the time surface.
+        :param width: Width of the time surface.
+        :param decay_const: Decay constant to control the exponential decay of time values.
+        :param downsample: Whether to downsample the time surface by half.
+        """
+        super().__init__()
+        self.height = height
+        self.width = width
+        self.decay_const = decay_const
+        self.downsample = downsample
+
+    def get_shape(self) -> Tuple[int, int, int]:
+        if self.downsample:
+            return (1, self.height // 2, self.width // 2)
+        return (1, self.height, self.width)
+
+    def create_surface_tensor(self, x: th.Tensor, y: th.Tensor, time: th.Tensor) -> th.Tensor:
+        """
+        Constructs a time surface using Torch tensors.
+        :param x: x-coordinates of events.
+        :param y: y-coordinates of events.
+        :param time: timestamps of events.
+        :return: Time surface as a Torch tensor.
+        """
+        device = x.device
+        surface = th.full((self.height, self.width), fill_value=-1, dtype=th.float32, device=device)
+
+        # Clip coordinates to ensure they are within bounds
+        x = th.clamp(x, 0, self.width - 1)
+        y = th.clamp(y, 0, self.height - 1)
+
+        # Update the time surface with the latest event times
+        for i in range(len(time)):
+            xi, yi, ti = x[i], y[i], time[i]
+            surface[yi, xi] = ti
+
+        # Apply exponential decay
+        max_time = time[-1]  # Latest event time
+        surface = th.exp(-(max_time - surface) / self.decay_const)
+        surface[surface < 0] = 0  # Ignore invalid values
+
+        # Downsample the time surface if required
+        if self.downsample:
+            surface = th.nn.functional.interpolate(
+                surface.unsqueeze(0).unsqueeze(0),  # Add batch and channel dims
+                size=(self.height // 2, self.width // 2),
+                mode="bilinear",
+                align_corners=False
+            ).squeeze(0).squeeze(0)
+
+        return surface.unsqueeze(0)  # Add channel dimension
+
+    def create_surface_numpy(self, x: np.ndarray, y: np.ndarray, time: np.ndarray) -> np.ndarray:
+        """
+        Constructs a time surface using NumPy arrays.
+        :param x: x-coordinates of events.
+        :param y: y-coordinates of events.
+        :param time: timestamps of events.
+        :return: Time surface as a NumPy array.
+        """
+        surface = np.full((self.height, self.width), fill_value=-1, dtype=np.float32)
+
+        # Clip coordinates to ensure they are within bounds
+        x = np.clip(x, 0, self.width - 1)
+        y = np.clip(y, 0, self.height - 1)
+
+        # Update the time surface with the latest event times
+        for i in range(len(time)):
+            xi, yi, ti = x[i], y[i], time[i]
+            surface[yi, xi] = ti
+
+        # Apply exponential decay
+        max_time = time[-1]  # Latest event time
+        surface = np.exp(-(max_time - surface) / self.decay_const)
+        surface[surface < 0] = 0  # Ignore invalid values
+
+        # Downsample the time surface if required
+        if self.downsample:
+            surface = cv2.resize(surface, (self.width // 2, self.height // 2), interpolation=cv2.INTER_LINEAR)
+
+        return surface[np.newaxis, :]  # Add channel dimension
+
+    def construct(self,
+                  x: Union[th.Tensor, np.ndarray],
+                  y: Union[th.Tensor, np.ndarray],
+                  pol: Union[th.Tensor, np.ndarray],  # Not used for time surface
+                  time: Union[th.Tensor, np.ndarray]) -> Union[th.Tensor, np.ndarray]:
+        if isinstance(x, th.Tensor):
+            return self.create_surface_tensor(x, y, time)
+        elif isinstance(x, np.ndarray):
+            return self.create_surface_numpy(x, y, time)
+        else:
+            raise ValueError("Unsupported type for input data.")
