@@ -19,7 +19,7 @@ camera_to_hw = {
 class H5Reader:
     def __init__(self, h5_file: Path, camera: str):
         assert h5_file.exists(), f"{h5_file} does not exist."
-        assert h5_file.suffix == '.hdf5' or h5_file.suffix == '.h5', "File must be HDF5 format."
+        assert h5_file.suffix in ['.hdf5', '.h5'], "File must be HDF5 format."
         
         self.h5f = h5py.File(str(h5_file), 'r')  # HDF5ファイルを開く
         self._finalizer = weakref.finalize(self, self._close_callback, self.h5f)
@@ -31,6 +31,14 @@ class H5Reader:
             self.height, self.width = None
 
         self.all_times = None
+
+        # ファイル構造を判定
+        if "CD" in self.h5f and "events" in self.h5f["CD"]:
+            self.event_path = ["CD", "events"]
+        elif "events" in self.h5f:
+            self.event_path = ["events"]
+        else:
+            raise ValueError("Unsupported H5 file structure. Cannot find events data.")
 
     def __enter__(self):
         return self
@@ -59,7 +67,8 @@ class H5Reader:
         """
         assert self.is_open, "File is closed."
         if self.all_times is None:
-            self.all_times = np.asarray(self.h5f['CD']['events']['t'])
+            event_group = self._get_event_group()
+            self.all_times = np.asarray(event_group['t'])
             self._correct_time(self.all_times)
         return self.all_times
 
@@ -84,13 +93,12 @@ class H5Reader:
             dict: 各データの元のデータ型を示す辞書
         """
         assert self.is_open, "File is closed."
-        ev_data = self.h5f['CD']['events']
-        
+        event_group = self._get_event_group()
         dtypes = {
-            "t": ev_data['t'].dtype,
-            "x": ev_data['x'].dtype,
-            "y": ev_data['y'].dtype,
-            "p": ev_data['p'].dtype
+            "t": event_group['t'].dtype,
+            "x": event_group['x'].dtype,
+            "y": event_group['y'].dtype,
+            "p": event_group['p'].dtype
         }
         return dtypes
 
@@ -101,10 +109,10 @@ class H5Reader:
         assert self.is_open
         assert idx_end >= idx_start
 
-        ev_data = self.h5f['CD']['events']
-        x_array = np.asarray(ev_data['x'][idx_start:idx_end], dtype='int64')
-        y_array = np.asarray(ev_data['y'][idx_start:idx_end], dtype='int64')
-        p_array = np.asarray(ev_data['p'][idx_start:idx_end], dtype='int64')
+        event_group = self._get_event_group()
+        x_array = np.asarray(event_group['x'][idx_start:idx_end], dtype='int64')
+        y_array = np.asarray(event_group['y'][idx_start:idx_end], dtype='int64')
+        p_array = np.asarray(event_group['p'][idx_start:idx_end], dtype='int64')
         t_array = np.asarray(self.time[idx_start:idx_end], dtype='int64')
 
         # タイムスタンプが昇順か確認
@@ -130,10 +138,10 @@ class H5Reader:
         """
         assert self.is_open, "File is closed."
 
-        # 全イベントを読み込み (メモリに入る前提)
-        x_array = np.asarray(self.h5f['CD']['events']['x'])
-        y_array = np.asarray(self.h5f['CD']['events']['y'])
-        p_array = np.asarray(self.h5f['CD']['events']['p'])
+        event_group = self._get_event_group()
+        x_array = np.asarray(event_group['x'])
+        y_array = np.asarray(event_group['y'])
+        p_array = np.asarray(event_group['p'])
         t_array = self.time  # self.timeはすでに補正済みのタイムスタンプを返す
 
         t_min = t_array.min()
@@ -143,7 +151,6 @@ class H5Reader:
         y_min = y_array.min()
         y_max = y_array.max()
 
-        # p=1 を ON イベント数、p=0 を OFF イベント数とみなす例 (データセットに合わせて調整)
         p_on_count = np.count_nonzero(p_array == 1)
         p_off_count = np.count_nonzero(p_array == 0)
         total_count = len(p_array)
@@ -160,3 +167,12 @@ class H5Reader:
             "total_count": total_count
         }
         return summary
+
+    def _get_event_group(self):
+        """
+        イベントデータが格納されているグループを取得する。
+        """
+        group = self.h5f
+        for key in self.event_path:
+            group = group[key]
+        return group
