@@ -7,7 +7,7 @@ from src.utils.events_reader import H5Reader
 from src.data.representation import EventFrame
 
 def main(h5_file_path, camera, delta_t_ms, output_dir):
-    delta_t_ns = delta_t_ms * 1000
+    delta_t_us = delta_t_ms * 1000
     h5_file = Path(h5_file_path)
     reader = H5Reader(h5_file, camera=camera)
     height, width = reader.get_height_and_width()
@@ -22,7 +22,7 @@ def main(h5_file_path, camera, delta_t_ms, output_dir):
 
     while idx_start < len(all_time):
         # delta_t_ns分のイベントをスライス
-        idx_end = np.searchsorted(all_time, all_time[idx_start] + delta_t_ns, side='right')
+        idx_end = np.searchsorted(all_time, all_time[idx_start] + delta_t_us, side='right')
         events = reader.get_event_slice(idx_start, idx_end, convert_2_torch=False)
         idx_start = idx_end
 
